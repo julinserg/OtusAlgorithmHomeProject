@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/julinserg/go_home_project/internal/app"
+	"github.com/julinserg/OtusAlgorithmHomeProject/internal/app"
 )
 
 type Application interface {
@@ -45,7 +45,7 @@ func NewServer(logger Logger, app Application, endpoint string) *Server {
 		Handler:           loggingMiddleware(mux, logger),
 		ReadHeaderTimeout: 3 * time.Second,
 	}
-	ch := previewerHandler{logger, app}
+	ch := minisearchHandler{logger, app}
 	mux.HandleFunc("/", ch.hellowHandler)
 	mux.HandleFunc("/fill/", ch.mainHandler)
 	mux.HandleFunc("/clearcache/", ch.clearCacheHandler)

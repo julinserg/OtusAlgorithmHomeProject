@@ -1,6 +1,6 @@
 //go:build integration
 
-package previewerintegrationtests
+package minisearchintegrationtests
 
 import (
 	"bytes"
@@ -14,13 +14,13 @@ import (
 	"github.com/cucumber/godog"
 )
 
-type previewerTest struct {
+type minisearchTest struct {
 	responseStatusCode int
 	responseBody       []byte
 	header             http.Header
 }
 
-func (test *previewerTest) iSendRequestTo(httpMethod, addr string) (err error) {
+func (test *minisearchTest) iSendRequestTo(httpMethod, addr string) (err error) {
 	var r *http.Response
 
 	switch httpMethod {
@@ -41,28 +41,28 @@ func (test *previewerTest) iSendRequestTo(httpMethod, addr string) (err error) {
 	return
 }
 
-func (test *previewerTest) theResponseCodeShouldBe(code int) error {
+func (test *minisearchTest) theResponseCodeShouldBe(code int) error {
 	if test.responseStatusCode != code {
 		return fmt.Errorf("unexpected status code: %d != %d", test.responseStatusCode, code)
 	}
 	return nil
 }
 
-func (test *previewerTest) theResponseShouldMatchText(text string) error {
+func (test *minisearchTest) theResponseShouldMatchText(text string) error {
 	if string(test.responseBody) != text {
 		return fmt.Errorf("unexpected text: %s != %s", test.responseBody, text)
 	}
 	return nil
 }
 
-func (test *previewerTest) theResponseShouldMatchTextMultiLine(text string) error {
+func (test *pminisearchTest) theResponseShouldMatchTextMultiLine(text string) error {
 	if !strings.Contains(string(test.responseBody), text) {
 		return fmt.Errorf("unexpected text: %s != %s", test.responseBody, text)
 	}
 	return nil
 }
 
-func (test *previewerTest) compareWithImage(filePath string) error {
+func (test *minisearchTest) compareWithImage(filePath string) error {
 	file, err := os.Open(filePath)
 	if err != nil {
 		return err
@@ -78,14 +78,14 @@ func (test *previewerTest) compareWithImage(filePath string) error {
 	return nil
 }
 
-func (test *previewerTest) imageGetFromCache() error {
+func (test *minisearchTest) imageGetFromCache() error {
 	if test.header.Get("is-image-from-cache") != "true" {
 		return fmt.Errorf("is-image-from-cache: %s != true", test.header.Get("is-image-from-cache"))
 	}
 	return nil
 }
 
-func (test *previewerTest) imageGetFromRemoteServer() error {
+func (test *minisearchTest) imageGetFromRemoteServer() error {
 	if test.header.Get("is-image-from-cache") != "false" {
 		return fmt.Errorf("is-image-from-cache: %s != false", test.header.Get("is-image-from-cache"))
 	}
@@ -93,7 +93,7 @@ func (test *previewerTest) imageGetFromRemoteServer() error {
 }
 
 func InitializeScenario(s *godog.ScenarioContext) {
-	test := new(previewerTest)
+	test := new(minisearchTest)
 
 	s.Step(`^I send "([^"]*)" request to "([^"]*)"$`, test.iSendRequestTo)
 	s.Step(`^The response code should be (\d+)$`, test.theResponseCodeShouldBe)

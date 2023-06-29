@@ -1,13 +1,13 @@
 version: "3"
 
 services:
-  previewer_service:
+  minisearch_service:
     build:
       context: ../
-      dockerfile: ./build/Dockerfile-previewer
-    image: previewer_service_docker_image    
+      dockerfile: ./build/Dockerfile-minisearch
+    image: minisearch_service_docker_image    
     volumes:
-      - ../configs/config-docker.toml:/etc/previewer/config.toml:ro
+      - ../configs/config-docker.toml:/etc/minisearch/config.toml:ro
 
     restart: on-failure
     ports:

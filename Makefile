@@ -1,10 +1,10 @@
-BIN_CND := "./bin/previewer"
+BIN_CND := "./bin/minisearch"
 
 GIT_HASH := $(shell git log --format="%h" -n 1)
 LDFLAGS := -X main.release="develop" -X main.buildDate=$(shell date -u +%Y-%m-%dT%H:%M:%S) -X main.gitHash=$(GIT_HASH)
 
 build:
-	go build -v -o $(BIN_CND) -ldflags "$(LDFLAGS)" ./cmd/previewer  
+	go build -v -o $(BIN_CND) -ldflags "$(LDFLAGS)" ./cmd/minisearch  
 
 run: build
 	$(BIN_CND) -config ./configs/config.toml

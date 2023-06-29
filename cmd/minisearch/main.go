@@ -10,15 +10,15 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/julinserg/go_home_project/internal/app"
-	"github.com/julinserg/go_home_project/internal/logger"
-	internalhttp "github.com/julinserg/go_home_project/internal/server/http"
+	"github.com/julinserg/OtusAlgorithmHomeProject/internal/app"
+	"github.com/julinserg/OtusAlgorithmHomeProject/internal/logger"
+	internalhttp "github.com/julinserg/OtusAlgorithmHomeProject/internal/server/http"
 )
 
 var configFile string
 
 func init() {
-	flag.StringVar(&configFile, "config", "/etc/previewer/config.toml", "Path to configuration file")
+	flag.StringVar(&configFile, "config", "/etc/minisearch/config.toml", "Path to configuration file")
 }
 
 func main() {
@@ -36,7 +36,7 @@ func main() {
 		return
 	}
 
-	f, err := os.OpenFile("previewer.logfile", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0o666)
+	f, err := os.OpenFile("minisearch.logfile", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0o666)
 	if err != nil {
 		log.Println("error opening logfile: " + err.Error())
 		return
@@ -45,19 +45,12 @@ func main() {
 
 	logg := logger.New(config.Logger.Level, f)
 
-	dname, err := os.MkdirTemp("", "previewercachedir")
-	if err != nil {
-		log.Println("error create temp dir for cache: " + err.Error())
-		return
-	}
-	defer os.RemoveAll(dname)
 
-	logg.Info("temp dir for cache pictures is created: " + dname)
 
-	previewer := app.New(logg, config.LRUCache.Size, dname)
+	minisearch := app.New(logg)
 
 	endpoint := net.JoinHostPort(config.HTTP.Host, config.HTTP.Port)
-	server := internalhttp.NewServer(logg, previewer, endpoint)
+	server := internalhttp.NewServer(logg, minisearch, endpoint)
 
 	ctx, cancel := signal.NotifyContext(context.Background(),
 		syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
@@ -74,7 +67,7 @@ func main() {
 		}
 	}()
 
-	logg.Info("previewer pictures is running...")
+	logg.Info("minisearch is running...")
 
 	if err := server.Start(ctx); err != nil {
 		logg.Error("failed to start http server: " + err.Error())

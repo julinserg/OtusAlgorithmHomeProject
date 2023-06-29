@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/julinserg/go_home_project/internal/app"
+	"github.com/julinserg/OtusAlgorithmHomeProject/internal/app"
 )
 
 var (
@@ -16,29 +16,29 @@ var (
 	ErrDimmensionIsVeryLarge = errors.New("width or height is very large")
 )
 
-type previewerHandler struct {
+type minisearchHandler struct {
 	logger Logger
 	app    Application
 }
 
-func (ph *previewerHandler) hellowHandler(w http.ResponseWriter, r *http.Request) {
+func (ph *minisearchHandler) hellowHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("This is my previewer!"))
+	w.Write([]byte("This is my minisearch!"))
 }
 
-func (ph *previewerHandler) sendError(err error, code int, w http.ResponseWriter) {
+func (ph *minisearchHandler) sendError(err error, code int, w http.ResponseWriter) {
 	ph.logger.Error(err.Error())
 	w.WriteHeader(code)
 	w.Write([]byte(err.Error()))
 }
 
-func (ph *previewerHandler) proxyError(body []byte, code int, w http.ResponseWriter) {
+func (ph *minisearchHandler) proxyError(body []byte, code int, w http.ResponseWriter) {
 	ph.logger.Error("Image Server Error Code: " + strconv.Itoa(code))
 	w.WriteHeader(code)
 	w.Write(body)
 }
 
-func (ph *previewerHandler) validateInputParameter(url string, w http.ResponseWriter) (bool, app.InputParams) {
+func (ph *minisearchHandler) validateInputParameter(url string, w http.ResponseWriter) (bool, app.InputParams) {
 	splitURL := strings.Split(url, "/")
 	if len(splitURL) < 3 {
 		ph.sendError(ErrNotSetParams, http.StatusBadRequest, w)
@@ -72,7 +72,7 @@ func (ph *previewerHandler) validateInputParameter(url string, w http.ResponseWr
 	return true, app.InputParams{Width: width, Height: height, ImageURL: imageURL}
 }
 
-func (ph *previewerHandler) mainHandler(w http.ResponseWriter, r *http.Request) {
+func (ph *minisearchHandler) mainHandler(w http.ResponseWriter, r *http.Request) {
 	isValid, params := ph.validateInputParameter(r.URL.Path, w)
 	if !isValid {
 		return
@@ -91,7 +91,7 @@ func (ph *previewerHandler) mainHandler(w http.ResponseWriter, r *http.Request) 
 	w.WriteHeader(http.StatusOK)
 }
 
-func (ph *previewerHandler) clearCacheHandler(w http.ResponseWriter, r *http.Request) {
+func (ph *minisearchHandler) clearCacheHandler(w http.ResponseWriter, r *http.Request) {
 	ph.app.ClearCache()
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte("Clear cache is done!"))

@@ -1,6 +1,6 @@
 //go:build integration
 
-package previewerintegrationtests
+package minisearchintegrationtests
 
 import (
 	"log"

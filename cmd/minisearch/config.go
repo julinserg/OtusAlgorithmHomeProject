@@ -8,7 +8,6 @@ import "github.com/BurntSushi/toml"
 type Config struct {
 	Logger   LoggerConf
 	HTTP     HTTPConfig
-	LRUCache LRUCacheConfig
 }
 
 type LoggerConf struct {
@@ -21,9 +20,6 @@ type HTTPConfig struct {
 	Port string
 }
 
-type LRUCacheConfig struct {
-	Size int
-}
 
 func (c *Config) Read(fpath string) error {
 	_, err := toml.DecodeFile(fpath, c)

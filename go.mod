@@ -1,4 +1,4 @@
-module github.com/julinserg/go_home_project
+module github.com/julinserg/OtusAlgorithmHomeProject
 
 go 1.16
 
