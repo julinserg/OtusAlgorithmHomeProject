@@ -13,6 +13,7 @@ import (
 	"github.com/julinserg/OtusAlgorithmHomeProject/internal/app"
 	"github.com/julinserg/OtusAlgorithmHomeProject/internal/logger"
 	internalhttp "github.com/julinserg/OtusAlgorithmHomeProject/internal/server/http"
+	sqlstorage "github.com/julinserg/OtusAlgorithmHomeProject/internal/storage/sql"
 )
 
 var configFile string
@@ -45,9 +46,20 @@ func main() {
 
 	logg := logger.New(config.Logger.Level, f)
 
+	sqlstor := sqlstorage.New()
+	ctxDb, cancelDb := context.WithCancel(context.Background())
+	defer cancelDb()
+	if err := sqlstor.Connect(ctxDb, config.PSQL.DSN); err != nil {
+		logg.Error("cannot connect to psql: " + err.Error())
+		return
+	}
+	defer func() {
+		if err := sqlstor.Close(); err != nil {
+			logg.Error("cannot close psql connection: " + err.Error())
+		}
+	}()
 
-
-	minisearch := app.New(logg)
+	minisearch := app.New(logg, sqlstor)
 
 	endpoint := net.JoinHostPort(config.HTTP.Host, config.HTTP.Port)
 	server := internalhttp.NewServer(logg, minisearch, endpoint)
