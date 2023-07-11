@@ -1,98 +1,149 @@
 package internalhttp
 
 import (
-	"errors"
+	"bytes"
+	"html/template"
 	"net/http"
-	"strconv"
-	"strings"
 
 	"github.com/julinserg/OtusAlgorithmHomeProject/internal/app"
 )
 
-var (
-	ErrNotSetParams          = errors.New("not set width, height or image path in URL")
-	ErrWidthNotInt           = errors.New("width in URL not integer")
-	ErrHeightNotInt          = errors.New("height in URL not integer")
-	ErrDimmensionIsVeryLarge = errors.New("width or height is very large")
-)
+var landingFormTmpl = `
+<html>
+	<head>
+		<style>
+			h1 {
+				text-align: center;
+			}	
+		</style>
+	</head>
+    <body>
+	<h1>Mini Search</h1>
+	<table align="center">
+	<tr>
+		<td style="text-align: center"><form action="/add" method="post">
+			Add: <input type="text" name="add">
+			<input type="submit" value="Add">
+		</form></td>
+		<td style="text-align: center"><form action="/search" method="post">
+			Search: <input type="text" name="search">
+			<input type="submit" value="Search">
+		</form></td>
+	</tr>	     
+	</table>    
+	</body>
+</html>
+`
+
+var resultFormTmpl = `
+<html>
+	<head>
+		<style>
+			h1 {
+				text-align: center;
+			}	
+		</style>
+	</head>
+    <body>
+	<h1>Mini Search</h1>
+	<table align="center">
+	<tr>
+		<td style="text-align: center"><form action="/add" method="post">
+			Add: <input type="text" name="add">
+			<input type="submit" value="Add">
+		</form></td>
+		<td style="text-align: center"><form action="/search" method="post">
+			Search: <input type="text" name="search">
+			<input type="submit" value="Search">
+		</form></td>
+	</tr>
+	<tr>	
+	<td style="text-align: center">	
+	<table>
+	{{ range .ItemsSource}}
+		<tr>
+			<td>{{ .Index }}</td>	
+			<td>{{ .Url }}</td>			
+		</tr>		
+	{{ end}}
+	</table>
+	</td>
+	<td style="text-align: center">	
+	<table>
+	{{ range .ItemsResult}}
+		<tr>
+			<td>{{ .Index }}</td>
+			<td>{{ .Url }}</td>		
+		</tr>	
+		<tr>
+			<td></td>
+			<td>{{ .Context }}</td>
+		</tr>
+	{{ end}}	
+	</table>
+	</td>	
+	</tr>  	      
+	</table>    
+	</body>
+</html>
+`
+
+type Data struct {
+	ItemsSource []app.DocumentSrc
+	ItemsResult []app.DocumentSearch
+}
 
 type minisearchHandler struct {
 	logger Logger
 	app    Application
+	data   Data
 }
 
-func (ph *minisearchHandler) hellowHandler(w http.ResponseWriter, r *http.Request) {
+func (ph *minisearchHandler) landingHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("This is my minisearch!"))
+	w.Write([]byte(landingFormTmpl))
 }
 
-func (ph *minisearchHandler) sendError(err error, code int, w http.ResponseWriter) {
-	ph.logger.Error(err.Error())
-	w.WriteHeader(code)
-	w.Write([]byte(err.Error()))
-}
+func (ph *minisearchHandler) searchHandler(w http.ResponseWriter, r *http.Request) {
 
-func (ph *minisearchHandler) proxyError(body []byte, code int, w http.ResponseWriter) {
-	ph.logger.Error("Image Server Error Code: " + strconv.Itoa(code))
-	w.WriteHeader(code)
-	w.Write(body)
-}
-
-func (ph *minisearchHandler) validateInputParameter(url string, w http.ResponseWriter) (bool, app.InputParams) {
-	splitURL := strings.Split(url, "/")
-	if len(splitURL) < 3 {
-		ph.sendError(ErrNotSetParams, http.StatusBadRequest, w)
-		return false, app.InputParams{}
-	}
-	splitURLParam := splitURL[2:]
-
-	if len(splitURLParam) < 3 {
-		ph.sendError(ErrNotSetParams, http.StatusBadRequest, w)
-		return false, app.InputParams{}
-	}
-	width, err := strconv.Atoi(splitURLParam[0])
+	searchString := r.FormValue("search")
+	listResultSearch, err := ph.app.Search(searchString)
 	if err != nil {
-		ph.sendError(ErrWidthNotInt, http.StatusBadRequest, w)
-		return false, app.InputParams{}
+		panic(err)
 	}
-
-	height, err := strconv.Atoi(splitURLParam[1])
-	if err != nil {
-		ph.sendError(ErrHeightNotInt, http.StatusBadRequest, w)
-		return false, app.InputParams{}
+	ph.data.ItemsResult = nil
+	for _, doc := range listResultSearch {
+		ph.data.ItemsResult = append(ph.data.ItemsResult, doc)
 	}
-
-	if width > 3840 || height > 2160 {
-		ph.sendError(ErrDimmensionIsVeryLarge, http.StatusBadRequest, w)
-		return false, app.InputParams{}
+	t := template.Must(template.New("result").Parse(resultFormTmpl))
+	buf := &bytes.Buffer{}
+	if err := t.Execute(buf, ph.data); err != nil {
+		panic(err)
 	}
+	s := buf.String()
 
-	imageURL := strings.Join(splitURLParam[2:], "/")
-
-	return true, app.InputParams{Width: width, Height: height, ImageURL: imageURL}
-}
-
-func (ph *minisearchHandler) mainHandler(w http.ResponseWriter, r *http.Request) {
-	isValid, params := ph.validateInputParameter(r.URL.Path, w)
-	if !isValid {
-		return
-	}
-	image, code, isFromCache, err := ph.app.GetImagePreview(params, r.Header)
-	if err != nil {
-		if errors.Is(err, app.ErrFromRemoteServer) {
-			ph.proxyError(image, code, w)
-		} else {
-			ph.sendError(err, code, w)
-			return
-		}
-	}
-	w.Header().Add("is-image-from-cache", strconv.FormatBool(isFromCache))
-	w.Write(image)
 	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(s))
 }
 
-func (ph *minisearchHandler) clearCacheHandler(w http.ResponseWriter, r *http.Request) {
-	ph.app.ClearCache()
+func (ph *minisearchHandler) addHandler(w http.ResponseWriter, r *http.Request) {
+
+	urlDoc := r.FormValue("add")
+	listDoc, err := ph.app.AddNewDocument(urlDoc)
+	if err != nil {
+		panic(err)
+	}
+	ph.data.ItemsSource = nil
+	for _, doc := range listDoc {
+		ph.data.ItemsSource = append(ph.data.ItemsSource, doc)
+	}
+	t := template.Must(template.New("result").Parse(resultFormTmpl))
+	buf := &bytes.Buffer{}
+	if err := t.Execute(buf, ph.data); err != nil {
+		panic(err)
+	}
+	s := buf.String()
+
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("Clear cache is done!"))
+	w.Write([]byte(s))
 }

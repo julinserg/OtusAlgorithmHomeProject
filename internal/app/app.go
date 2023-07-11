@@ -1,8 +1,6 @@
 package app
 
 import (
-	"errors"
-	"net/http"
 	"time"
 
 	"github.com/julinserg/OtusAlgorithmHomeProject/internal/storage"
@@ -11,6 +9,17 @@ import (
 type App struct {
 	logger  Logger
 	storage Storage
+}
+
+type DocumentSrc struct {
+	Index int
+	Url   string
+}
+
+type DocumentSearch struct {
+	Index   int
+	Url     string
+	Context string
 }
 
 type Logger interface {
@@ -26,39 +35,24 @@ type Storage interface {
 	GetEventsByMonth(dateBeginMonth time.Time) ([]storage.Event, error)
 }
 
-type InputParams struct {
-	Width    int
-	Height   int
-	ImageURL string
+func (a *App) AddNewDocument(url string) ([]DocumentSrc, error) {
+	documents := make([]DocumentSrc, 0)
+	documents = append(documents, DocumentSrc{1, "https://www.w3schools.com/howto/howto_css_searchbar.asp"})
+	documents = append(documents, DocumentSrc{2, "https://ru.wikipedia.org/wiki/Yahoo!_Search"})
+	return documents, nil
 }
 
-var ErrFromRemoteServer = errors.New("error from remote server")
-
-func (a *App) getImageFromRemoteServer(
-	imageURL string,
-	header http.Header,
-) ([]byte, int, error) {
-	return nil, http.StatusOK, nil
-}
-
-func (a *App) cropAndResizeImage(imageRaw []byte, width int, height int) ([]byte, error) {
-	return nil, nil
-}
-
-func (a *App) saveImageOnDisk(image []byte, pathToFile string) error {
-	return nil
-}
-
-func (a *App) readImageFromDisk(pathToFile string) ([]byte, error) {
-	return nil, nil
-}
-
-func (a *App) GetImagePreview(params InputParams, header http.Header) ([]byte, int, bool, error) {
-	return nil, 0, true, nil
-}
-
-func (a *App) ClearCache() {
-
+func (a *App) Search(str string) ([]DocumentSearch, error) {
+	documents := make([]DocumentSearch, 0)
+	documents = append(documents, DocumentSearch{
+		1,
+		"https://stackoverflow.com/questions/9523927/how-to-stop-table-from-resizing-when-contents-grow",
+		"I have a table, the cells of which are filled with picture"})
+	documents = append(documents, DocumentSearch{
+		2,
+		"https://stackoverflow.com/questions/21019302/html-button-layout-positioning",
+		"Even i didn't get what exactly you want. but for an image sourrounded by buttons try this code"})
+	return documents, nil
 }
 
 func New(logger Logger, storage Storage) *App {

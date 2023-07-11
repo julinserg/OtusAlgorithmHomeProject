@@ -10,8 +10,8 @@ import (
 )
 
 type Application interface {
-	GetImagePreview(params app.InputParams, header http.Header) ([]byte, int, bool, error)
-	ClearCache()
+	AddNewDocument(url string) ([]app.DocumentSrc, error)
+	Search(str string) ([]app.DocumentSearch, error)
 }
 
 type Server struct {
@@ -45,10 +45,10 @@ func NewServer(logger Logger, app Application, endpoint string) *Server {
 		Handler:           loggingMiddleware(mux, logger),
 		ReadHeaderTimeout: 3 * time.Second,
 	}
-	ch := minisearchHandler{logger, app}
-	mux.HandleFunc("/", ch.hellowHandler)
-	mux.HandleFunc("/fill/", ch.mainHandler)
-	mux.HandleFunc("/clearcache/", ch.clearCacheHandler)
+	ch := minisearchHandler{logger: logger, app: app}
+	mux.HandleFunc("/", ch.landingHandler)
+	mux.HandleFunc("/search", ch.searchHandler)
+	mux.HandleFunc("/add", ch.addHandler)
 	return &Server{server, logger, endpoint}
 }
 
