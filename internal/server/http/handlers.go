@@ -8,76 +8,42 @@ import (
 	"github.com/julinserg/OtusAlgorithmHomeProject/internal/app"
 )
 
-var landingFormTmpl = `
-<html>
-	<head>
-		<style>
-			h1 {
-				text-align: center;
-			}	
-		</style>
-	</head>
+var htmlFormTmpl = `
+<html>	
     <body>
-	<h1>Mini Search</h1>
-	<table align="center">
+	<h1 style="text-align: center">Mini Search</h1>
+	<table align="center" width="1000">
 	<tr>
-		<td style="text-align: center"><form action="/add" method="post">
+		<td style="text-align: center; vertical-align: top" width="50%"><form action="/add" method="post">
 			Add: <input type="text" name="add">
 			<input type="submit" value="Add">
 		</form></td>
-		<td style="text-align: center"><form action="/search" method="post">
-			Search: <input type="text" name="search">
-			<input type="submit" value="Search">
-		</form></td>
-	</tr>	     
-	</table>    
-	</body>
-</html>
-`
-
-var resultFormTmpl = `
-<html>
-	<head>
-		<style>
-			h1 {
-				text-align: center;
-			}	
-		</style>
-	</head>
-    <body>
-	<h1>Mini Search</h1>
-	<table align="center">
-	<tr>
-		<td style="text-align: center"><form action="/add" method="post">
-			Add: <input type="text" name="add">
-			<input type="submit" value="Add">
-		</form></td>
-		<td style="text-align: center"><form action="/search" method="post">
+		<td style="text-align: center; vertical-align: top" width="50%"><form action="/search" method="post">
 			Search: <input type="text" name="search">
 			<input type="submit" value="Search">
 		</form></td>
 	</tr>
 	<tr>	
-	<td style="text-align: center">	
+	<td style="text-align: center; vertical-align: top">	
 	<table>
 	{{ range .ItemsSource}}
 		<tr>
-			<td>{{ .Index }}</td>	
-			<td>{{ .Url }}</td>			
+			<td width="10%">{{ .Index }}</td>	
+			<td width="90%">{{ .Url }}</td>			
 		</tr>		
 	{{ end}}
 	</table>
 	</td>
-	<td style="text-align: center">	
+	<td style="text-align: center; vertical-align: top">	
 	<table>
 	{{ range .ItemsResult}}
 		<tr>
-			<td>{{ .Index }}</td>
-			<td>{{ .Url }}</td>		
+			<td width="10%">{{ .Index }}</td>
+			<td width="90%">{{ .Url }}</td>		
 		</tr>	
 		<tr>
-			<td></td>
-			<td>{{ .Context }}</td>
+			<td width="10%"></td>
+			<td width="90%">{{ .Context }}</td>
 		</tr>
 	{{ end}}	
 	</table>
@@ -101,7 +67,13 @@ type minisearchHandler struct {
 
 func (ph *minisearchHandler) landingHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(landingFormTmpl))
+	t := template.Must(template.New("result").Parse(htmlFormTmpl))
+	buf := &bytes.Buffer{}
+	if err := t.Execute(buf, ph.data); err != nil {
+		panic(err)
+	}
+	s := buf.String()
+	w.Write([]byte(s))
 }
 
 func (ph *minisearchHandler) searchHandler(w http.ResponseWriter, r *http.Request) {
@@ -115,7 +87,7 @@ func (ph *minisearchHandler) searchHandler(w http.ResponseWriter, r *http.Reques
 	for _, doc := range listResultSearch {
 		ph.data.ItemsResult = append(ph.data.ItemsResult, doc)
 	}
-	t := template.Must(template.New("result").Parse(resultFormTmpl))
+	t := template.Must(template.New("result").Parse(htmlFormTmpl))
 	buf := &bytes.Buffer{}
 	if err := t.Execute(buf, ph.data); err != nil {
 		panic(err)
@@ -137,7 +109,7 @@ func (ph *minisearchHandler) addHandler(w http.ResponseWriter, r *http.Request) 
 	for _, doc := range listDoc {
 		ph.data.ItemsSource = append(ph.data.ItemsSource, doc)
 	}
-	t := template.Must(template.New("result").Parse(resultFormTmpl))
+	t := template.Must(template.New("result").Parse(htmlFormTmpl))
 	buf := &bytes.Buffer{}
 	if err := t.Execute(buf, ph.data); err != nil {
 		panic(err)
