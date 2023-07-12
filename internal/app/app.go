@@ -1,8 +1,6 @@
 package app
 
 import (
-	"time"
-
 	"github.com/julinserg/OtusAlgorithmHomeProject/internal/storage"
 )
 
@@ -27,18 +25,34 @@ type Logger interface {
 }
 
 type Storage interface {
-	Add(event storage.Event) error
-	Update(event storage.Event) error
-	Remove(id string) error
-	GetEventsByDay(date time.Time) ([]storage.Event, error)
-	GetEventsByWeek(dateBeginWeek time.Time) ([]storage.Event, error)
-	GetEventsByMonth(dateBeginMonth time.Time) ([]storage.Event, error)
+	Add(document storage.DocumentSource) error
+	GetAllDocumentSource() ([]storage.DocumentSource, error)
+}
+
+func documentSrcFromStorage(doc *storage.DocumentSource) DocumentSrc {
+	docApp := DocumentSrc{
+		Index: doc.Index, Url: doc.Url,
+	}
+	return docApp
+}
+
+func documentSrcToStorage(docApp *DocumentSrc) storage.DocumentSource {
+	docStor := storage.DocumentSource{
+		Index: docApp.Index, Url: docApp.Url,
+	}
+	return docStor
 }
 
 func (a *App) AddNewDocument(url string) ([]DocumentSrc, error) {
 	documents := make([]DocumentSrc, 0)
-	documents = append(documents, DocumentSrc{1, "https://www.w3schools.com/howto/howto_css_searchbar.asp"})
-	documents = append(documents, DocumentSrc{2, "https://ru.wikipedia.org/wiki/Yahoo!_Search"})
+	a.storage.Add(storage.DocumentSource{Url: url})
+	listDoc, err := a.storage.GetAllDocumentSource()
+	if err != nil {
+		return nil, err
+	}
+	for _, d := range listDoc {
+		documents = append(documents, DocumentSrc{Index: d.Index, Url: d.Url})
+	}
 	return documents, nil
 }
 

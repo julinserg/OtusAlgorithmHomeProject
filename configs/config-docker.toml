@@ -6,4 +6,4 @@ host = "0.0.0.0"
 port = "8088"
 
 [psql]
-dsn = "host=postgres port=5432 user=sergey password=sergey dbname=calendar sslmode=disable"
+dsn = "host=postgres port=5432 user=sergey password=sergey dbname=minisearch sslmode=disable"

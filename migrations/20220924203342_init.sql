@@ -1,15 +1,8 @@
 -- +goose Up
-CREATE table events (
-    id              text primary key,
-    title           text not null,
-    time_start      timestamp not null,
-    time_stop       timestamp not null,
-    description     text,
-    user_id         text not null,    
-    time_notify     bigint,
-    is_notifyed     boolean,
-    CONSTRAINT time_start_unique UNIQUE (time_start)
+CREATE table document_source (
+    id               serial primary key,
+    url              text unique not null   
 );
 
 -- +goose Down
-drop table events;
+drop table document_source;
