@@ -29,7 +29,7 @@ var htmlFormTmpl = `
 	{{ range .ItemsSource}}
 		<tr>
 			<td width="10%">{{ .Index }}</td>	
-			<td width="90%">{{ .Url }}</td>			
+			<td width="90%"><a href="{{ .Url }}">{{ .Url }}</a></td>			
 		</tr>		
 	{{ end}}
 	</table>
@@ -39,7 +39,7 @@ var htmlFormTmpl = `
 	{{ range .ItemsResult}}
 		<tr>
 			<td width="10%">{{ .Index }}</td>
-			<td width="90%">{{ .Url }}</td>		
+			<td width="90%"><a href="{{ .Url }}">{{ .Url }}</a></td>		
 		</tr>	
 		<tr>
 			<td width="10%"></td>
