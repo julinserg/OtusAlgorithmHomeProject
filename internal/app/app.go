@@ -1,8 +1,16 @@
 package app
 
 import (
+	"context"
+	"errors"
+	"fmt"
+	"net/http"
+
+	"github.com/PuerkitoBio/goquery"
 	"github.com/julinserg/OtusAlgorithmHomeProject/internal/storage"
 )
+
+var ErrFromRemoteServer = errors.New("error from remote server")
 
 type App struct {
 	logger  Logger
@@ -12,6 +20,7 @@ type App struct {
 type DocumentSrc struct {
 	Index int
 	Url   string
+	Title string
 }
 
 type DocumentSearch struct {
@@ -31,27 +40,57 @@ type Storage interface {
 
 func documentSrcFromStorage(doc *storage.DocumentSource) DocumentSrc {
 	docApp := DocumentSrc{
-		Index: doc.Index, Url: doc.Url,
+		Index: doc.Index, Url: doc.Url, Title: doc.Title,
 	}
 	return docApp
 }
 
 func documentSrcToStorage(docApp *DocumentSrc) storage.DocumentSource {
 	docStor := storage.DocumentSource{
-		Index: docApp.Index, Url: docApp.Url,
+		Index: docApp.Index, Url: docApp.Url, Title: docApp.Title,
 	}
 	return docStor
 }
 
+func (a *App) getDocumentFromRemoteServer(url string) (string, string, error) {
+	client := http.Client{}
+	req, err := http.NewRequestWithContext(context.Background(), "GET", url, nil)
+	if err != nil {
+		return "", "", err
+	}
+	res, err := client.Do(req)
+	if err != nil {
+		return "", "", err
+	}
+	defer res.Body.Close()
+	if res.StatusCode != http.StatusOK {
+		return "", "", ErrFromRemoteServer
+	}
+	doc, _ := goquery.NewDocumentFromReader(res.Body)
+	doc.Find("script").Each(func(i int, el *goquery.Selection) {
+		el.Remove()
+	})
+	return doc.Find("title").Text(), doc.Text(), nil
+}
+
 func (a *App) AddNewDocument(url string) ([]DocumentSrc, error) {
+	docTitle, docText, err := a.getDocumentFromRemoteServer(url)
+	if err != nil {
+		return nil, err
+	}
+	_ = docText
+	fmt.Println(docText)
 	documents := make([]DocumentSrc, 0)
-	a.storage.Add(storage.DocumentSource{Url: url})
+	err = a.storage.Add(storage.DocumentSource{Url: url, Title: docTitle, Data: docText})
+	if err != nil {
+		return nil, err
+	}
 	listDoc, err := a.storage.GetAllDocumentSource()
 	if err != nil {
 		return nil, err
 	}
 	for _, d := range listDoc {
-		documents = append(documents, DocumentSrc{Index: d.Index, Url: d.Url})
+		documents = append(documents, documentSrcFromStorage(&d))
 	}
 	return documents, nil
 }

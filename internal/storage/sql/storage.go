@@ -31,69 +31,13 @@ func (s *Storage) Close() error {
 	return s.db.Close()
 }
 
-/*func (s *Storage) GetEventsByDay(date time.Time) ([]storage.Event, error) {
-	result := make([]storage.Event, 0)
-	dateDayBegin := time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, date.Location())
-	dateDayEnd := dateDayBegin.AddDate(0, 0, 1)
-	rows, err := s.db.NamedQuery(`SELECT id,title,time_start,time_stop,description,
-	user_id,time_notify FROM events WHERE time_start >= :timeS AND time_start < :timeE`,
-		map[string]interface{}{
-			"timeS": dateDayBegin,
-			"timeE": dateDayEnd,
-		})
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	for rows.Next() {
-		ev := storage.Event{}
-		err := rows.StructScan(&ev)
-		if err != nil {
-			return nil, err
-		}
-		result = append(result, ev)
-	}
-	return result, nil
-}
-
-func (s *Storage) getEventsByInterval(date1, date2 time.Time) ([]storage.Event, error) {
-	result := make([]storage.Event, 0)
-	rows, err := s.db.NamedQuery(`SELECT id,title,time_start,time_stop,description,
-	user_id,time_notify FROM events WHERE time_start >= :timeS AND time_start <= :timeE`,
-		map[string]interface{}{
-			"timeS": date1,
-			"timeE": date2,
-		})
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	for rows.Next() {
-		ev := storage.Event{}
-		err := rows.StructScan(&ev)
-		if err != nil {
-			return nil, err
-		}
-		result = append(result, ev)
-	}
-	return result, nil
-}
-
-func (s *Storage) GetEventsByWeek(dateBeginWeek time.Time) ([]storage.Event, error) {
-	dateEndWeek := dateBeginWeek.AddDate(0, 0, 7)
-	return s.getEventsByInterval(dateBeginWeek, dateEndWeek)
-}
-
-func (s *Storage) GetEventsByMonth(dateBeginMonth time.Time) ([]storage.Event, error) {
-	dateEndMonth := dateBeginMonth.AddDate(0, 1, 0)
-	return s.getEventsByInterval(dateBeginMonth, dateEndMonth)
-}*/
-
 func (s *Storage) Add(document storage.DocumentSource) error {
-	_, err := s.db.NamedExec(`INSERT INTO document_source (url)
-	 VALUES (:url)`,
+	_, err := s.db.NamedExec(`INSERT INTO document_source (url, title, data)
+	 VALUES (:url, :title, :data)`,
 		map[string]interface{}{
-			"url": document.Url,
+			"url":   document.Url,
+			"title": document.Title,
+			"data":  document.Data,
 		})
 	return err
 }
@@ -101,7 +45,7 @@ func (s *Storage) Add(document storage.DocumentSource) error {
 func (s *Storage) GetAllDocumentSource() ([]storage.DocumentSource, error) {
 	docList := make([]storage.DocumentSource, 0)
 	doc := storage.DocumentSource{}
-	rows, err := s.db.Queryx(`SELECT * FROM document_source`)
+	rows, err := s.db.Queryx(`SELECT id, url, title FROM document_source`)
 	if err != nil {
 		return nil, err
 	}

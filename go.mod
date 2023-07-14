@@ -4,6 +4,7 @@ go 1.16
 
 require (
 	github.com/BurntSushi/toml v1.2.1
+	github.com/PuerkitoBio/goquery v1.8.1 // indirect
 	github.com/cucumber/godog v0.12.5
 	github.com/jackc/pgx/v4 v4.18.1
 	github.com/jmoiron/sqlx v1.3.5

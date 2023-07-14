@@ -30,7 +30,11 @@ var htmlFormTmpl = `
 		<tr>
 			<td width="10%">{{ .Index }}</td>	
 			<td width="90%"><a href="{{ .Url }}">{{ .Url }}</a></td>			
-		</tr>		
+		</tr>
+		<tr>
+			<td width="10%"></td>
+			<td width="90%">{{ .Title }}</td>
+		</tr>				
 	{{ end}}
 	</table>
 	</td>
