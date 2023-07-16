@@ -2,10 +2,11 @@ package app
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
-	"fmt"
 	"net/http"
 	"regexp"
+	"strings"
 
 	"github.com/PuerkitoBio/goquery"
 	"github.com/julinserg/OtusAlgorithmHomeProject/internal/storage"
@@ -18,17 +19,26 @@ type App struct {
 	storage Storage
 }
 
-type DocumentSrc struct {
+type Document struct {
 	ID        int
 	SeqNumber int
 	Url       string
 	Title     string
 }
 
-type DocumentSearch struct {
+type SearchResult struct {
 	Index   int
 	Url     string
 	Context string
+}
+
+type WordInfo struct {
+	IDDocument    int `json:"id_document"`
+	PosInDocument int `json:"pos"`
+}
+
+type WordInfoList struct {
+	list []*WordInfo
 }
 
 type Logger interface {
@@ -36,19 +46,21 @@ type Logger interface {
 }
 
 type Storage interface {
-	Add(document storage.DocumentSource) error
-	GetAllDocumentSource() ([]storage.DocumentSource, error)
+	Add(document storage.Document) (int, error)
+	GetAllDocumentSource() ([]storage.Document, error)
+	GetWordInfo(word string) ([]byte, error)
+	UpdateWordInfo(word string, wordInfo []byte) error
 }
 
-func documentSrcFromStorage(doc *storage.DocumentSource, index int) DocumentSrc {
-	docApp := DocumentSrc{
+func documentSrcFromStorage(doc *storage.Document, index int) Document {
+	docApp := Document{
 		ID: doc.ID, SeqNumber: index + 1, Url: doc.Url, Title: doc.Title,
 	}
 	return docApp
 }
 
-func documentSrcToStorage(docApp *DocumentSrc) storage.DocumentSource {
-	docStor := storage.DocumentSource{
+func documentSrcToStorage(docApp *Document) storage.Document {
+	docStor := storage.Document{
 		ID: docApp.ID, Url: docApp.Url, Title: docApp.Title,
 	}
 	return docStor
@@ -85,18 +97,52 @@ func (a *App) getDocumentFromRemoteServer(url string) (string, string, error) {
 	return title, text, nil
 }
 
-func (a *App) AddNewDocument(url string) ([]DocumentSrc, error) {
+func createAndSaveInvertIndex(storage *Storage, id int, text string) {
+	removePunctuation := func(r rune) rune {
+		if strings.ContainsRune(".,:;!?[]()<>", r) {
+			return -1
+		} else {
+			return r
+		}
+	}
+
+	s := strings.Map(removePunctuation, text)
+	words := strings.Fields(s)
+	for _, w := range words {
+		wordInfoByte, err := (*storage).GetWordInfo(w)
+		if err != nil {
+			panic(err) // TODO: add channel for return error
+		}
+		wil := &WordInfoList{}
+		if wordInfoByte != nil {
+			json.Unmarshal(wordInfoByte, wil)
+		}
+		wil.list = append(wil.list, &WordInfo{id, 0})
+		wordInfoNewByte, err := json.Marshal(wil)
+		if err != nil {
+			panic(err) // TODO: add channel for return error
+		}
+		err = (*storage).UpdateWordInfo(w, wordInfoNewByte)
+		if err != nil {
+			panic(err) // TODO: add channel for return error
+		}
+	}
+}
+
+func (a *App) AddNewDocument(url string) ([]Document, error) {
 	docTitle, docText, err := a.getDocumentFromRemoteServer(url)
 	if err != nil {
 		return nil, err
 	}
-	_ = docText
-	fmt.Println(docText)
-	documents := make([]DocumentSrc, 0)
-	err = a.storage.Add(storage.DocumentSource{Url: url, Title: docTitle, Data: docText})
+
+	documents := make([]Document, 0)
+	id, err := a.storage.Add(storage.Document{Url: url, Title: docTitle, Data: docText})
 	if err != nil {
 		return nil, err
 	}
+
+	go createAndSaveInvertIndex(&a.storage, id, docText)
+
 	listDoc, err := a.storage.GetAllDocumentSource()
 	if err != nil {
 		return nil, err
@@ -107,8 +153,8 @@ func (a *App) AddNewDocument(url string) ([]DocumentSrc, error) {
 	return documents, nil
 }
 
-func (a *App) GetAllDocument() ([]DocumentSrc, error) {
-	documents := make([]DocumentSrc, 0)
+func (a *App) GetAllDocument() ([]Document, error) {
+	documents := make([]Document, 0)
 	listDoc, err := a.storage.GetAllDocumentSource()
 	if err != nil {
 		return nil, err
@@ -119,13 +165,13 @@ func (a *App) GetAllDocument() ([]DocumentSrc, error) {
 	return documents, nil
 }
 
-func (a *App) Search(str string) ([]DocumentSearch, error) {
-	documents := make([]DocumentSearch, 0)
-	documents = append(documents, DocumentSearch{
+func (a *App) Search(str string) ([]SearchResult, error) {
+	documents := make([]SearchResult, 0)
+	documents = append(documents, SearchResult{
 		1,
 		"https://stackoverflow.com/questions/9523927/how-to-stop-table-from-resizing-when-contents-grow",
 		"I have a table, the cells of which are filled with picture"})
-	documents = append(documents, DocumentSearch{
+	documents = append(documents, SearchResult{
 		2,
 		"https://stackoverflow.com/questions/21019302/html-button-layout-positioning",
 		"Even i didn't get what exactly you want. but for an image sourrounded by buttons try this code"})

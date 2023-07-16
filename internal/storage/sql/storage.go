@@ -31,21 +31,20 @@ func (s *Storage) Close() error {
 	return s.db.Close()
 }
 
-func (s *Storage) Add(document storage.DocumentSource) error {
-	_, err := s.db.NamedExec(`INSERT INTO document_source (url, title, data)
-	 VALUES (:url, :title, :data)`,
-		map[string]interface{}{
-			"url":   document.Url,
-			"title": document.Title,
-			"data":  document.Data,
-		})
-	return err
+func (s *Storage) Add(document storage.Document) (int, error) {
+	var lastInsertId int
+	err := s.db.QueryRowx(`INSERT INTO document_source (url, title, data) VALUES ($1, $2, $3) RETURNING id`,
+		document.Url, document.Title, document.Data).Scan(&lastInsertId)
+	if err != nil {
+		return 0, err
+	}
+	return lastInsertId, err
 }
 
-func (s *Storage) GetAllDocumentSource() ([]storage.DocumentSource, error) {
-	docList := make([]storage.DocumentSource, 0)
-	doc := storage.DocumentSource{}
-	rows, err := s.db.Queryx(`SELECT id, url, title FROM document_source`)
+func (s *Storage) GetAllDocumentSource() ([]storage.Document, error) {
+	docList := make([]storage.Document, 0)
+	doc := storage.Document{}
+	rows, err := s.db.Queryx(`SELECT id, url, title FROM document_source ORDER BY id`)
 	if err != nil {
 		return nil, err
 	}
@@ -58,4 +57,12 @@ func (s *Storage) GetAllDocumentSource() ([]storage.DocumentSource, error) {
 		docList = append(docList, doc)
 	}
 	return docList, nil
+}
+
+func (s *Storage) GetWordInfo(word string) ([]byte, error) {
+	return nil, nil
+}
+
+func (s *Storage) UpdateWordInfo(word string, wordInfo []byte) error {
+	return nil
 }

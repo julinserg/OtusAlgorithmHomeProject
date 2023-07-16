@@ -69,8 +69,8 @@ var htmlFormTmpl = `
 `
 
 type Data struct {
-	ItemsSource []app.DocumentSrc
-	ItemsResult []app.DocumentSearch
+	ItemsSource []app.Document
+	ItemsResult []app.SearchResult
 }
 
 type minisearchHandler struct {

@@ -10,9 +10,9 @@ import (
 )
 
 type Application interface {
-	GetAllDocument() ([]app.DocumentSrc, error)
-	AddNewDocument(url string) ([]app.DocumentSrc, error)
-	Search(str string) ([]app.DocumentSearch, error)
+	GetAllDocument() ([]app.Document, error)
+	AddNewDocument(url string) ([]app.Document, error)
+	Search(str string) ([]app.SearchResult, error)
 }
 
 type Server struct {

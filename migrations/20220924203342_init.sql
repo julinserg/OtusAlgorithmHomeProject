@@ -6,5 +6,11 @@ CREATE table document_source (
     data             text not null
 );
 
+CREATE table document_invert_index (
+    word             text primary key,
+    documents_list   bytea not null     
+);
+
 -- +goose Down
 drop table document_source;
+drop table document_invert_index;

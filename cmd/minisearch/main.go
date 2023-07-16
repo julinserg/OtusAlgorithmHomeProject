@@ -22,6 +22,10 @@ func init() {
 	flag.StringVar(&configFile, "config", "/etc/minisearch/config.toml", "Path to configuration file")
 }
 
+/*
+ goose -dir migrations postgres "user=sergey password=sergey dbname=minisearch sslmode=disable" up
+*/
+
 func main() {
 	flag.Parse()
 
