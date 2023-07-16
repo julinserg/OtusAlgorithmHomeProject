@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"regexp"
 
 	"github.com/PuerkitoBio/goquery"
 	"github.com/julinserg/OtusAlgorithmHomeProject/internal/storage"
@@ -18,9 +19,10 @@ type App struct {
 }
 
 type DocumentSrc struct {
-	Index int
-	Url   string
-	Title string
+	ID        int
+	SeqNumber int
+	Url       string
+	Title     string
 }
 
 type DocumentSearch struct {
@@ -38,16 +40,16 @@ type Storage interface {
 	GetAllDocumentSource() ([]storage.DocumentSource, error)
 }
 
-func documentSrcFromStorage(doc *storage.DocumentSource) DocumentSrc {
+func documentSrcFromStorage(doc *storage.DocumentSource, index int) DocumentSrc {
 	docApp := DocumentSrc{
-		Index: doc.Index, Url: doc.Url, Title: doc.Title,
+		ID: doc.ID, SeqNumber: index + 1, Url: doc.Url, Title: doc.Title,
 	}
 	return docApp
 }
 
 func documentSrcToStorage(docApp *DocumentSrc) storage.DocumentSource {
 	docStor := storage.DocumentSource{
-		Index: docApp.Index, Url: docApp.Url, Title: docApp.Title,
+		ID: docApp.ID, Url: docApp.Url, Title: docApp.Title,
 	}
 	return docStor
 }
@@ -70,7 +72,17 @@ func (a *App) getDocumentFromRemoteServer(url string) (string, string, error) {
 	doc.Find("script").Each(func(i int, el *goquery.Selection) {
 		el.Remove()
 	})
-	return doc.Find("title").Text(), doc.Text(), nil
+	regex, err := regexp.Compile("\\s+\n")
+	if err != nil {
+		return "", "", err
+	}
+	title := ""
+	doc.Find("title").EachWithBreak(func(i int, el *goquery.Selection) bool {
+		title = el.Text()
+		return false
+	})
+	text := regex.ReplaceAllString(doc.Text(), "\n")
+	return title, text, nil
 }
 
 func (a *App) AddNewDocument(url string) ([]DocumentSrc, error) {
@@ -89,8 +101,20 @@ func (a *App) AddNewDocument(url string) ([]DocumentSrc, error) {
 	if err != nil {
 		return nil, err
 	}
-	for _, d := range listDoc {
-		documents = append(documents, documentSrcFromStorage(&d))
+	for index, d := range listDoc {
+		documents = append(documents, documentSrcFromStorage(&d, index))
+	}
+	return documents, nil
+}
+
+func (a *App) GetAllDocument() ([]DocumentSrc, error) {
+	documents := make([]DocumentSrc, 0)
+	listDoc, err := a.storage.GetAllDocumentSource()
+	if err != nil {
+		return nil, err
+	}
+	for index, d := range listDoc {
+		documents = append(documents, documentSrcFromStorage(&d, index))
 	}
 	return documents, nil
 }

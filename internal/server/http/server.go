@@ -10,6 +10,7 @@ import (
 )
 
 type Application interface {
+	GetAllDocument() ([]app.DocumentSrc, error)
 	AddNewDocument(url string) ([]app.DocumentSrc, error)
 	Search(str string) ([]app.DocumentSearch, error)
 }
