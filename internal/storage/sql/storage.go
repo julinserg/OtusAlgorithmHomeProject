@@ -18,6 +18,14 @@ func New() *Storage {
 	return &Storage{}
 }
 
+type WordInfo struct {
+	Info []byte `db:"documents_list"`
+}
+
+type LastInsertId struct {
+	Id int
+}
+
 func (s *Storage) Connect(ctx context.Context, dsn string) error {
 	var err error
 	s.db, err = sqlx.Open("pgx", dsn)
@@ -32,13 +40,17 @@ func (s *Storage) Close() error {
 }
 
 func (s *Storage) Add(document storage.Document) (int, error) {
-	var lastInsertId int
-	err := s.db.QueryRowx(`INSERT INTO document_source (url, title, data) VALUES ($1, $2, $3) RETURNING id`,
-		document.Url, document.Title, document.Data).Scan(&lastInsertId)
+
+	rows, err := s.db.Queryx(`INSERT INTO document_source (url, title, data) VALUES ($1, $2, $3) RETURNING id`,
+		document.Url, document.Title, document.Data)
 	if err != nil {
 		return 0, err
 	}
-	return lastInsertId, err
+	defer rows.Close()
+	rows.Next()
+	lastInsertId := &LastInsertId{}
+	err = rows.StructScan(&lastInsertId)
+	return lastInsertId.Id, err
 }
 
 func (s *Storage) GetAllDocumentSource() ([]storage.Document, error) {
@@ -60,9 +72,25 @@ func (s *Storage) GetAllDocumentSource() ([]storage.Document, error) {
 }
 
 func (s *Storage) GetWordInfo(word string) ([]byte, error) {
-	return nil, nil
+	rows, err := s.db.Queryx(`SELECT documents_list FROM document_invert_index WHERE word = $1`, word)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	if !rows.Next() {
+		return nil, nil
+	}
+	wordInfo := &WordInfo{}
+	err = rows.StructScan(&wordInfo)
+	return wordInfo.Info, err
 }
 
 func (s *Storage) UpdateWordInfo(word string, wordInfo []byte) error {
+	rows, err := s.db.Queryx(`INSERT INTO document_invert_index (word, documents_list) VALUES ($1, $2) 
+	ON CONFLICT (word) DO UPDATE SET documents_list = excluded.documents_list`, word, wordInfo)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
 	return nil
 }
