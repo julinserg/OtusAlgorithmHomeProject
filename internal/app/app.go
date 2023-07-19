@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"net/http"
 	"regexp"
 	"sort"
@@ -45,6 +44,7 @@ type Logger interface {
 
 type Storage interface {
 	Add(document storage.Document) (int, error)
+	Get(documentId int) (storage.Document, error)
 	GetAllDocumentSource() ([]storage.Document, error)
 	GetWordInfo(word string) ([]byte, error)
 	UpdateWordInfo(word string, wordInfo []byte) error
@@ -122,7 +122,7 @@ func toLowerStrings(s []string) []string {
 	return s
 }
 
-func createAndSaveInvertIndex(storage *Storage, id int, text string) {
+func textToSliceWord(text string) []string {
 	removePunctuation := func(r rune) rune {
 		if strings.ContainsRune(".,:;!?[]()<>", r) {
 			return -1
@@ -135,8 +135,12 @@ func createAndSaveInvertIndex(storage *Storage, id int, text string) {
 	words := strings.Fields(s)
 	words = toLowerStrings(words)
 	words = removeDuplicateStrings(words)
+	return words
+}
+
+func createAndSaveInvertIndex(storage *Storage, id int, text string) {
+	words := textToSliceWord(text)
 	for _, w := range words {
-		fmt.Println(w)
 		wordInfoByte, err := (*storage).GetWordInfo(w)
 		if err != nil {
 			panic(err) // TODO: add channel for return error
@@ -194,16 +198,27 @@ func (a *App) GetAllDocument() ([]Document, error) {
 }
 
 func (a *App) Search(str string) ([]SearchResult, error) {
-	documents := make([]SearchResult, 0)
-	documents = append(documents, SearchResult{
-		1,
-		"https://stackoverflow.com/questions/9523927/how-to-stop-table-from-resizing-when-contents-grow",
-		"I have a table, the cells of which are filled with picture"})
-	documents = append(documents, SearchResult{
-		2,
-		"https://stackoverflow.com/questions/21019302/html-button-layout-positioning",
-		"Even i didn't get what exactly you want. but for an image sourrounded by buttons try this code"})
-	return documents, nil
+	result := make([]SearchResult, 0)
+	words := textToSliceWord(str)
+	//mapIdRelevantDocuments := make(map[string][]int)
+	for _, word := range words {
+		wordInfoByte, err := a.storage.GetWordInfo(word)
+		if err != nil {
+			return nil, err
+		}
+		wil := make([]WordInfo, 0)
+		if wordInfoByte != nil {
+			json.Unmarshal(wordInfoByte, &wil)
+		}
+		/*for _, wordInfo := range wil {
+			mapIdRelevantDocuments[word] =
+		}*/
+		/*doc, err := a.storage.Get(wordInfo.IDDocument)
+		if err != nil {
+			return nil, err
+		}*/
+	}
+	return result, nil
 }
 
 func New(logger Logger, storage Storage) *App {

@@ -53,6 +53,22 @@ func (s *Storage) Add(document storage.Document) (int, error) {
 	return lastInsertId.Id, err
 }
 
+func (s *Storage) Get(documentId int) (storage.Document, error) {
+	doc := storage.Document{}
+	rows, err := s.db.Queryx(`SELECT * FROM document_source WHERE id = $1`, documentId)
+	if err != nil {
+		return doc, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		err := rows.StructScan(&doc)
+		if err != nil {
+			return doc, err
+		}
+	}
+	return doc, nil
+}
+
 func (s *Storage) GetAllDocumentSource() ([]storage.Document, error) {
 	docList := make([]storage.Document, 0)
 	doc := storage.Document{}
