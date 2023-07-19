@@ -4,8 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"regexp"
+	"sort"
 	"strings"
 
 	"github.com/PuerkitoBio/goquery"
@@ -35,10 +37,6 @@ type SearchResult struct {
 type WordInfo struct {
 	IDDocument    int `json:"id_document"`
 	PosInDocument int `json:"pos"`
-}
-
-type WordInfoList struct {
-	list []*WordInfo
 }
 
 type Logger interface {
@@ -97,6 +95,33 @@ func (a *App) getDocumentFromRemoteServer(url string) (string, string, error) {
 	return title, text, nil
 }
 
+func removeDuplicateStrings(s []string) []string {
+	if len(s) < 1 {
+		return s
+	}
+
+	sort.Strings(s)
+	prev := 1
+	for curr := 1; curr < len(s); curr++ {
+		if s[curr-1] != s[curr] {
+			s[prev] = s[curr]
+			prev++
+		}
+	}
+
+	return s[:prev]
+}
+
+func toLowerStrings(s []string) []string {
+	if len(s) < 1 {
+		return s
+	}
+	for curr := 1; curr < len(s); curr++ {
+		s[curr] = strings.ToLower(s[curr])
+	}
+	return s
+}
+
 func createAndSaveInvertIndex(storage *Storage, id int, text string) {
 	removePunctuation := func(r rune) rune {
 		if strings.ContainsRune(".,:;!?[]()<>", r) {
@@ -108,16 +133,19 @@ func createAndSaveInvertIndex(storage *Storage, id int, text string) {
 
 	s := strings.Map(removePunctuation, text)
 	words := strings.Fields(s)
+	words = toLowerStrings(words)
+	words = removeDuplicateStrings(words)
 	for _, w := range words {
+		fmt.Println(w)
 		wordInfoByte, err := (*storage).GetWordInfo(w)
 		if err != nil {
 			panic(err) // TODO: add channel for return error
 		}
-		wil := &WordInfoList{}
+		wil := make([]WordInfo, 0)
 		if wordInfoByte != nil {
-			json.Unmarshal(wordInfoByte, wil)
+			json.Unmarshal(wordInfoByte, &wil)
 		}
-		wil.list = append(wil.list, &WordInfo{id, 0})
+		wil = append(wil, WordInfo{id, 0})
 		wordInfoNewByte, err := json.Marshal(wil)
 		if err != nil {
 			panic(err) // TODO: add channel for return error
