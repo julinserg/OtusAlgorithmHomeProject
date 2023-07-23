@@ -109,6 +109,17 @@ func (ph *minisearchHandler) searchHandler(w http.ResponseWriter, r *http.Reques
 	for _, doc := range listResultSearch {
 		ph.data.ItemsResult = append(ph.data.ItemsResult, doc)
 	}
+	if ph.data.ItemsSource == nil {
+		listDoc, err := ph.app.GetAllDocument()
+		if err != nil {
+			panic(err)
+		}
+		ph.data.ItemsSource = nil
+		for _, doc := range listDoc {
+			ph.data.ItemsSource = append(ph.data.ItemsSource, doc)
+		}
+	}
+
 	t := template.Must(template.New("result").Parse(htmlFormTmpl))
 	buf := &bytes.Buffer{}
 	if err := t.Execute(buf, ph.data); err != nil {
@@ -121,9 +132,14 @@ func (ph *minisearchHandler) searchHandler(w http.ResponseWriter, r *http.Reques
 }
 
 func (ph *minisearchHandler) addHandler(w http.ResponseWriter, r *http.Request) {
-
 	urlDoc := r.FormValue("add")
-	listDoc, err := ph.app.AddNewDocument(urlDoc)
+	var listDoc []app.Document
+	var err error
+	if len(urlDoc) == 0 {
+		listDoc, err = ph.app.GetAllDocument()
+	} else {
+		listDoc, err = ph.app.AddNewDocument(urlDoc)
+	}
 	if err != nil {
 		panic(err)
 	}
