@@ -218,16 +218,7 @@ func parseWordsFromText(s string) []WordWithPos {
 }
 
 func textToSliceWord(text string) []WordWithPos {
-	removePunctuation := func(r rune) rune {
-		if strings.ContainsRune(".,:;!?[]()<>", r) {
-			return -1
-		} else {
-			return r
-		}
-	}
-
-	s := strings.Map(removePunctuation, text)
-	words := parseWordsFromText(s)
+	words := parseWordsFromText(text)
 	words = removeDuplicateStrings(words)
 	return words
 }
@@ -260,6 +251,14 @@ func (a *App) AddNewDocument(url string) ([]Document, error) {
 	if err != nil {
 		return nil, err
 	}
+	removePunctuation := func(r rune) rune {
+		if strings.ContainsRune(".,:;!?[]()<>", r) {
+			return ' '
+		} else {
+			return r
+		}
+	}
+	docText = strings.Map(removePunctuation, docText)
 
 	documents := make([]Document, 0)
 	id, err := a.storage.Add(storage.Document{Url: url, Title: docTitle, Data: docText})
