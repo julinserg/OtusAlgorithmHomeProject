@@ -8,6 +8,8 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"unicode"
+	"unicode/utf8"
 
 	"github.com/PuerkitoBio/goquery"
 	"github.com/julinserg/OtusAlgorithmHomeProject/internal/storage"
@@ -36,6 +38,11 @@ type SearchResult struct {
 type WordInfo struct {
 	IDDocument    int `json:"id_document"`
 	PosInDocument int `json:"pos"`
+}
+
+type WordWithPos struct {
+	Word string
+	Pos  int
 }
 
 type Logger interface {
@@ -95,15 +102,18 @@ func (a *App) getDocumentFromRemoteServer(url string) (string, string, error) {
 	return title, text, nil
 }
 
-func removeDuplicateStrings(s []string) []string {
+func removeDuplicateStrings(s []WordWithPos) []WordWithPos {
 	if len(s) < 1 {
 		return s
 	}
 
-	sort.Strings(s)
+	sort.SliceStable(s, func(i, j int) bool {
+		return s[i].Word < s[j].Word
+	})
+
 	prev := 1
 	for curr := 1; curr < len(s); curr++ {
-		if s[curr-1] != s[curr] {
+		if s[curr-1].Word != s[curr].Word {
 			s[prev] = s[curr]
 			prev++
 		}
@@ -112,17 +122,102 @@ func removeDuplicateStrings(s []string) []string {
 	return s[:prev]
 }
 
-func toLowerStrings(s []string) []string {
-	if len(s) < 1 {
-		return s
+var asciiSpace = [256]uint8{'\t': 1, '\n': 1, '\v': 1, '\f': 1, '\r': 1, ' ': 1}
+
+func fieldsFunc(s string, f func(rune) bool) []WordWithPos {
+	// A span is used to record a slice of s of the form s[start:end].
+	// The start index is inclusive and the end index is exclusive.
+	type span struct {
+		start int
+		end   int
 	}
-	for curr := 1; curr < len(s); curr++ {
-		s[curr] = strings.ToLower(s[curr])
+	spans := make([]span, 0, 32)
+
+	// Find the field start and end indices.
+	// Doing this in a separate pass (rather than slicing the string s
+	// and collecting the result substrings right away) is significantly
+	// more efficient, possibly due to cache effects.
+	start := -1 // valid span start if >= 0
+	for end, rune := range s {
+		if f(rune) {
+			if start >= 0 {
+				spans = append(spans, span{start, end})
+				// Set start to a negative value.
+				// Note: using -1 here consistently and reproducibly
+				// slows down this code by a several percent on amd64.
+				start = ^start
+			}
+		} else {
+			if start < 0 {
+				start = end
+			}
+		}
 	}
-	return s
+
+	// Last field might end at EOF.
+	if start >= 0 {
+		spans = append(spans, span{start, len(s)})
+	}
+
+	// Create strings from recorded field indices.
+	a := make([]WordWithPos, len(spans))
+	for i, span := range spans {
+		a[i] = WordWithPos{strings.ToLower(s[span.start:span.end]), span.start}
+	}
+
+	return a
 }
 
-func textToSliceWord(text string) []string {
+func parseWordsFromText(s string) []WordWithPos {
+	// First count the fields.
+	// This is an exact count if s is ASCII, otherwise it is an approximation.
+	n := 0
+	wasSpace := 1
+	// setBits is used to track which bits are set in the bytes of s.
+	setBits := uint8(0)
+	for i := 0; i < len(s); i++ {
+		r := s[i]
+		setBits |= r
+		isSpace := int(asciiSpace[r])
+		n += wasSpace & ^isSpace
+		wasSpace = isSpace
+	}
+
+	if setBits >= utf8.RuneSelf {
+		// Some runes in the input string are not ASCII.
+		return fieldsFunc(s, unicode.IsSpace)
+	}
+	// ASCII fast path
+	a := make([]WordWithPos, n)
+	na := 0
+	fieldStart := 0
+	i := 0
+	// Skip spaces in the front of the input.
+	for i < len(s) && asciiSpace[s[i]] != 0 {
+		i++
+	}
+	fieldStart = i
+	for i < len(s) {
+		if asciiSpace[s[i]] == 0 {
+			i++
+			continue
+		}
+		a[na] = WordWithPos{strings.ToLower(s[fieldStart:i]), fieldStart}
+		na++
+		i++
+		// Skip spaces in between fields.
+		for i < len(s) && asciiSpace[s[i]] != 0 {
+			i++
+		}
+		fieldStart = i
+	}
+	if fieldStart < len(s) { // Last field might end at EOF.
+		a[na] = WordWithPos{strings.ToLower(s[fieldStart:]), fieldStart}
+	}
+	return a
+}
+
+func textToSliceWord(text string) []WordWithPos {
 	removePunctuation := func(r rune) rune {
 		if strings.ContainsRune(".,:;!?[]()<>", r) {
 			return -1
@@ -132,8 +227,7 @@ func textToSliceWord(text string) []string {
 	}
 
 	s := strings.Map(removePunctuation, text)
-	words := strings.Fields(s)
-	words = toLowerStrings(words)
+	words := parseWordsFromText(s)
 	words = removeDuplicateStrings(words)
 	return words
 }
@@ -141,7 +235,7 @@ func textToSliceWord(text string) []string {
 func createAndSaveInvertIndex(storage *Storage, id int, text string) {
 	words := textToSliceWord(text)
 	for _, w := range words {
-		wordInfoByte, err := (*storage).GetWordInfo(w)
+		wordInfoByte, err := (*storage).GetWordInfo(w.Word)
 		if err != nil {
 			panic(err) // TODO: add channel for return error
 		}
@@ -149,12 +243,12 @@ func createAndSaveInvertIndex(storage *Storage, id int, text string) {
 		if wordInfoByte != nil {
 			json.Unmarshal(wordInfoByte, &wil)
 		}
-		wil = append(wil, WordInfo{id, 0})
+		wil = append(wil, WordInfo{id, w.Pos})
 		wordInfoNewByte, err := json.Marshal(wil)
 		if err != nil {
 			panic(err) // TODO: add channel for return error
 		}
-		err = (*storage).UpdateWordInfo(w, wordInfoNewByte)
+		err = (*storage).UpdateWordInfo(w.Word, wordInfoNewByte)
 		if err != nil {
 			panic(err) // TODO: add channel for return error
 		}
@@ -197,12 +291,15 @@ func (a *App) GetAllDocument() ([]Document, error) {
 	return documents, nil
 }
 
+const cFD = 100
+
 func (a *App) Search(str string) ([]SearchResult, error) {
 	result := make([]SearchResult, 0)
 	words := textToSliceWord(str)
-	//mapIdRelevantDocuments := make(map[string][]int)
+	mapIdRelevantDocuments := make(map[int]int)
+	mapIdRelevantPosInDocument := make(map[int][]int)
 	for _, word := range words {
-		wordInfoByte, err := a.storage.GetWordInfo(word)
+		wordInfoByte, err := a.storage.GetWordInfo(word.Word)
 		if err != nil {
 			return nil, err
 		}
@@ -210,13 +307,33 @@ func (a *App) Search(str string) ([]SearchResult, error) {
 		if wordInfoByte != nil {
 			json.Unmarshal(wordInfoByte, &wil)
 		}
-		/*for _, wordInfo := range wil {
-			mapIdRelevantDocuments[word] =
-		}*/
-		/*doc, err := a.storage.Get(wordInfo.IDDocument)
+		for _, wordInfo := range wil {
+			mapIdRelevantDocuments[wordInfo.IDDocument]++
+			mapIdRelevantPosInDocument[wordInfo.IDDocument] = append(mapIdRelevantPosInDocument[wordInfo.IDDocument], wordInfo.PosInDocument)
+		}
+	}
+	indexMatch := 0
+	for idDoc, countMatch := range mapIdRelevantDocuments {
+		if countMatch != len(words) {
+			continue
+		}
+		doc, err := a.storage.Get(idDoc)
 		if err != nil {
 			return nil, err
-		}*/
+		}
+		indexMatch++
+		context := ""
+		for _, pos := range mapIdRelevantPosInDocument[idDoc] {
+			if pos-cFD >= 0 && pos+cFD < len(doc.Data) {
+				context += "..." + doc.Data[pos-cFD:pos+cFD] + "..."
+			} else if pos-cFD >= 0 {
+				context += "..." + doc.Data[pos-cFD:] + "..."
+			} else if pos+cFD < len(doc.Data) {
+				context += "..." + doc.Data[:pos+cFD] + "..."
+			}
+		}
+		result = append(result, SearchResult{indexMatch, doc.Url, context})
+
 	}
 	return result, nil
 }
