@@ -32,6 +32,7 @@ type Document struct {
 type SearchResult struct {
 	Index   int
 	Url     string
+	Title   string
 	Context string
 }
 
@@ -292,11 +293,16 @@ func (a *App) GetAllDocument() ([]Document, error) {
 
 const cFD = 100
 
+type PositionInDoc struct {
+	begin int
+	end   int
+}
+
 func (a *App) Search(str string) ([]SearchResult, error) {
 	result := make([]SearchResult, 0)
 	words := textToSliceWord(str)
 	mapIdRelevantDocuments := make(map[int]int)
-	mapIdRelevantPosInDocument := make(map[int][]int)
+	mapIdRelevantPosInDocument := make(map[int][]PositionInDoc)
 	for _, word := range words {
 		wordInfoByte, err := a.storage.GetWordInfo(word.Word)
 		if err != nil {
@@ -308,7 +314,9 @@ func (a *App) Search(str string) ([]SearchResult, error) {
 		}
 		for _, wordInfo := range wil {
 			mapIdRelevantDocuments[wordInfo.IDDocument]++
-			mapIdRelevantPosInDocument[wordInfo.IDDocument] = append(mapIdRelevantPosInDocument[wordInfo.IDDocument], wordInfo.PosInDocument)
+			mapIdRelevantPosInDocument[wordInfo.IDDocument] =
+				append(mapIdRelevantPosInDocument[wordInfo.IDDocument],
+					PositionInDoc{wordInfo.PosInDocument, wordInfo.PosInDocument + len(word.Word)})
 		}
 	}
 	indexMatch := 0
@@ -323,15 +331,15 @@ func (a *App) Search(str string) ([]SearchResult, error) {
 		indexMatch++
 		context := ""
 		for _, pos := range mapIdRelevantPosInDocument[idDoc] {
-			if pos-cFD >= 0 && pos+cFD < len(doc.Data) {
-				context += "..." + doc.Data[pos-cFD:pos+cFD] + "..."
-			} else if pos-cFD >= 0 {
-				context += "..." + doc.Data[pos-cFD:] + "..."
-			} else if pos+cFD < len(doc.Data) {
-				context += "..." + doc.Data[:pos+cFD] + "..."
+			if pos.begin-cFD >= 0 && pos.end+cFD < len(doc.Data) {
+				context += "..." + doc.Data[pos.begin-cFD:pos.end+cFD] + "..."
+			} else if pos.begin-cFD >= 0 {
+				context += "..." + doc.Data[pos.begin-cFD:] + "..."
+			} else if pos.end+cFD < len(doc.Data) {
+				context += "..." + doc.Data[:pos.end+cFD] + "..."
 			}
 		}
-		result = append(result, SearchResult{indexMatch, doc.Url, context})
+		result = append(result, SearchResult{indexMatch, doc.Url, doc.Title, context})
 
 	}
 	return result, nil

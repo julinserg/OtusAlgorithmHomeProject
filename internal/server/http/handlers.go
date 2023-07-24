@@ -31,6 +31,7 @@ var htmlFormTmpl = `
 		<td style="text-align: left; vertical-align: top" width="50%"><form action="/search" method="post">
 			Search: <input type="text" name="search" size="45">
 			<input type="submit" value="Search">
+			<br><label><i>Result search for: {{.SearchRequest}}</i></label>
 		</form></td>	
 	</tr>
 	<tr>	
@@ -57,6 +58,10 @@ var htmlFormTmpl = `
 		</tr>	
 		<tr>
 			<td width="10%"></td>
+			<td width="90%"><b>{{ .Title }}</b></td>
+		</tr>	
+		<tr>
+			<td width="10%"></td>
 			<td width="90%">{{ .Context }}</td>
 		</tr>
 	{{ end}}	
@@ -69,8 +74,9 @@ var htmlFormTmpl = `
 `
 
 type Data struct {
-	ItemsSource []app.Document
-	ItemsResult []app.SearchResult
+	ItemsSource   []app.Document
+	ItemsResult   []app.SearchResult
+	SearchRequest string
 }
 
 type minisearchHandler struct {
@@ -105,6 +111,7 @@ func (ph *minisearchHandler) searchHandler(w http.ResponseWriter, r *http.Reques
 	if err != nil {
 		panic(err)
 	}
+	ph.data.SearchRequest = searchString
 	ph.data.ItemsResult = nil
 	for _, doc := range listResultSearch {
 		ph.data.ItemsResult = append(ph.data.ItemsResult, doc)
