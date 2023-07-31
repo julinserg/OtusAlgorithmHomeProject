@@ -51,9 +51,9 @@ func main() {
 	logg := logger.New(config.Logger.Level, f)
 
 	sqlstor := sqlstorage.New()
-	ctxDb, cancelDb := context.WithCancel(context.Background())
-	defer cancelDb()
-	if err := sqlstor.Connect(ctxDb, config.PSQL.DSN); err != nil {
+	ctxDB, cancelDB := context.WithCancel(context.Background())
+	defer cancelDB()
+	if err := sqlstor.Connect(ctxDB, config.PSQL.DSN); err != nil {
 		logg.Error("cannot connect to psql: " + err.Error())
 		return
 	}

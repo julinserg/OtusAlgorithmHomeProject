@@ -40,7 +40,7 @@ var htmlFormTmpl = `
 	{{ range .ItemsSource}}
 		<tr>
 			<td width="10%">{{ .SeqNumber }}</td>	
-			<td width="90%" class="ellipsis"><a href="{{ .Url }}">{{ .Url }}</a></td>			
+			<td width="90%" class="ellipsis"><a href="{{ .URL }}">{{ .URL }}</a></td>			
 		</tr>
 		<tr>
 			<td width="10%"></td>
@@ -54,7 +54,7 @@ var htmlFormTmpl = `
 	{{ range .ItemsResult}}
 		<tr>
 			<td width="10%">{{ .Index }}</td>
-			<td width="90%" class="ellipsis"><a href="{{ .Url }}">{{ .Url }}</a></td>		
+			<td width="90%" class="ellipsis"><a href="{{ .URL }}">{{ .URL }}</a></td>		
 		</tr>	
 		<tr>
 			<td width="10%"></td>
@@ -90,10 +90,7 @@ func (ph *minisearchHandler) landingHandler(w http.ResponseWriter, r *http.Reque
 	if err != nil {
 		panic(err)
 	}
-	ph.data.ItemsSource = nil
-	for _, doc := range listDoc {
-		ph.data.ItemsSource = append(ph.data.ItemsSource, doc)
-	}
+	ph.data.ItemsSource = append(ph.data.ItemsSource, listDoc...)
 	w.WriteHeader(http.StatusOK)
 	t := template.Must(template.New("result").Parse(htmlFormTmpl))
 	buf := &bytes.Buffer{}
@@ -105,26 +102,19 @@ func (ph *minisearchHandler) landingHandler(w http.ResponseWriter, r *http.Reque
 }
 
 func (ph *minisearchHandler) searchHandler(w http.ResponseWriter, r *http.Request) {
-
 	searchString := r.FormValue("search")
 	listResultSearch, err := ph.app.Search(searchString)
 	if err != nil {
 		panic(err)
 	}
 	ph.data.SearchRequest = searchString
-	ph.data.ItemsResult = nil
-	for _, doc := range listResultSearch {
-		ph.data.ItemsResult = append(ph.data.ItemsResult, doc)
-	}
+	ph.data.ItemsResult = append(ph.data.ItemsResult, listResultSearch...)
 	if ph.data.ItemsSource == nil {
 		listDoc, err := ph.app.GetAllDocument()
 		if err != nil {
 			panic(err)
 		}
-		ph.data.ItemsSource = nil
-		for _, doc := range listDoc {
-			ph.data.ItemsSource = append(ph.data.ItemsSource, doc)
-		}
+		ph.data.ItemsSource = append(ph.data.ItemsSource, listDoc...)
 	}
 
 	t := template.Must(template.New("result").Parse(htmlFormTmpl))
@@ -139,10 +129,9 @@ func (ph *minisearchHandler) searchHandler(w http.ResponseWriter, r *http.Reques
 }
 
 func (ph *minisearchHandler) addHandler(w http.ResponseWriter, r *http.Request) {
-	urlDoc := r.FormValue("add")
 	var listDoc []app.Document
 	var err error
-	if len(urlDoc) == 0 {
+	if urlDoc := r.FormValue("add"); len(urlDoc) == 0 {
 		listDoc, err = ph.app.GetAllDocument()
 	} else {
 		listDoc, err = ph.app.AddNewDocument(urlDoc)
@@ -150,10 +139,7 @@ func (ph *minisearchHandler) addHandler(w http.ResponseWriter, r *http.Request) 
 	if err != nil {
 		panic(err)
 	}
-	ph.data.ItemsSource = nil
-	for _, doc := range listDoc {
-		ph.data.ItemsSource = append(ph.data.ItemsSource, doc)
-	}
+	ph.data.ItemsSource = append(ph.data.ItemsSource, listDoc...)
 	t := template.Must(template.New("result").Parse(htmlFormTmpl))
 	buf := &bytes.Buffer{}
 	if err := t.Execute(buf, ph.data); err != nil {

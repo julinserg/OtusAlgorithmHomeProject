@@ -25,19 +25,19 @@ type App struct {
 type Document struct {
 	ID        int
 	SeqNumber int
-	Url       string
+	URL       string
 	Title     string
 }
 
 type SearchResult struct {
 	Index   int
-	Url     string
+	URL     string
 	Title   string
 	Context string
 }
 
 type WordInfo struct {
-	IDDocument    int `json:"id_document"`
+	IDDocument    int `json:"idDocument"`
 	PosInDocument int `json:"pos"`
 }
 
@@ -52,7 +52,7 @@ type Logger interface {
 
 type Storage interface {
 	Add(document storage.Document) (int, error)
-	Get(documentId int) (storage.Document, error)
+	Get(documentID int) (storage.Document, error)
 	GetAllDocumentSource() ([]storage.Document, error)
 	GetWordInfo(word string) ([]byte, error)
 	UpdateWordInfo(word string, wordInfo []byte) error
@@ -60,16 +60,9 @@ type Storage interface {
 
 func documentSrcFromStorage(doc *storage.Document, index int) Document {
 	docApp := Document{
-		ID: doc.ID, SeqNumber: index + 1, Url: doc.Url, Title: doc.Title,
+		ID: doc.ID, SeqNumber: index + 1, URL: doc.URL, Title: doc.Title,
 	}
 	return docApp
-}
-
-func documentSrcToStorage(docApp *Document) storage.Document {
-	docStor := storage.Document{
-		ID: docApp.ID, Url: docApp.Url, Title: docApp.Title,
-	}
-	return docStor
 }
 
 func (a *App) getDocumentFromRemoteServer(url string) (string, string, error) {
@@ -90,10 +83,7 @@ func (a *App) getDocumentFromRemoteServer(url string) (string, string, error) {
 	doc.Find("script").Each(func(i int, el *goquery.Selection) {
 		el.Remove()
 	})
-	regex, err := regexp.Compile("\\s+\n")
-	if err != nil {
-		return "", "", err
-	}
+	regex := regexp.MustCompile("\\s+\n")
 	title := ""
 	doc.Find("title").EachWithBreak(func(i int, el *goquery.Selection) bool {
 		title = el.Text()
@@ -191,13 +181,12 @@ func parseWordsFromText(s string) []WordWithPos {
 	// ASCII fast path
 	a := make([]WordWithPos, n)
 	na := 0
-	fieldStart := 0
 	i := 0
 	// Skip spaces in the front of the input.
 	for i < len(s) && asciiSpace[s[i]] != 0 {
 		i++
 	}
-	fieldStart = i
+	fieldStart := i
 	for i < len(s) {
 		if asciiSpace[s[i]] == 0 {
 			i++
@@ -255,14 +244,13 @@ func (a *App) AddNewDocument(url string) ([]Document, error) {
 	removePunctuation := func(r rune) rune {
 		if strings.ContainsRune(".,:;!?[]()<>", r) {
 			return ' '
-		} else {
-			return r
 		}
+		return r
 	}
 	docText = strings.Map(removePunctuation, docText)
 
 	documents := make([]Document, 0)
-	id, err := a.storage.Add(storage.Document{Url: url, Title: docTitle, Data: docText})
+	id, err := a.storage.Add(storage.Document{URL: url, Title: docTitle, Data: docText})
 	if err != nil {
 		return nil, err
 	}
@@ -273,8 +261,8 @@ func (a *App) AddNewDocument(url string) ([]Document, error) {
 	if err != nil {
 		return nil, err
 	}
-	for index, d := range listDoc {
-		documents = append(documents, documentSrcFromStorage(&d, index))
+	for index := range listDoc {
+		documents = append(documents, documentSrcFromStorage(&listDoc[index], index))
 	}
 	return documents, nil
 }
@@ -285,8 +273,8 @@ func (a *App) GetAllDocument() ([]Document, error) {
 	if err != nil {
 		return nil, err
 	}
-	for index, d := range listDoc {
-		documents = append(documents, documentSrcFromStorage(&d, index))
+	for index := range listDoc {
+		documents = append(documents, documentSrcFromStorage(&listDoc[index], index))
 	}
 	return documents, nil
 }
@@ -298,11 +286,41 @@ type PositionInDoc struct {
 	end   int
 }
 
-func (a *App) Search(str string) ([]SearchResult, error) {
+func (a *App) searchResult(words []WordWithPos,
+	mapDocuments map[int]int,
+	mapPosInDocument map[int][]PositionInDoc,
+) ([]SearchResult, error) {
 	result := make([]SearchResult, 0)
+	indexMatch := 0
+	for idDoc, countMatch := range mapDocuments {
+		if countMatch != len(words) {
+			continue
+		}
+		doc, err := a.storage.Get(idDoc)
+		if err != nil {
+			return nil, err
+		}
+		indexMatch++
+		context := ""
+		for _, pos := range mapPosInDocument[idDoc] {
+			switch {
+			case pos.begin-cFD >= 0 && pos.end+cFD < len(doc.Data):
+				context += "..." + doc.Data[pos.begin-cFD:pos.end+cFD] + "..."
+			case pos.begin-cFD >= 0 && pos.end+cFD >= len(doc.Data):
+				context += "..." + doc.Data[pos.begin-cFD:] + "..."
+			case pos.begin-cFD < 0 && pos.end+cFD < len(doc.Data):
+				context += "..." + doc.Data[:pos.end+cFD] + "..."
+			}
+		}
+		result = append(result, SearchResult{indexMatch, doc.URL, doc.Title, context})
+	}
+	return result, nil
+}
+
+func (a *App) Search(str string) ([]SearchResult, error) {
 	words := textToSliceWord(str)
-	mapIdRelevantDocuments := make(map[int]int)
-	mapIdRelevantPosInDocument := make(map[int][]PositionInDoc)
+	mapIDRelevantDocuments := make(map[int]int)
+	mapIDRelevantPosInDocument := make(map[int][]PositionInDoc)
 	for _, word := range words {
 		wordInfoByte, err := a.storage.GetWordInfo(word.Word)
 		if err != nil {
@@ -313,36 +331,12 @@ func (a *App) Search(str string) ([]SearchResult, error) {
 			json.Unmarshal(wordInfoByte, &wil)
 		}
 		for _, wordInfo := range wil {
-			mapIdRelevantDocuments[wordInfo.IDDocument]++
-			mapIdRelevantPosInDocument[wordInfo.IDDocument] =
-				append(mapIdRelevantPosInDocument[wordInfo.IDDocument],
-					PositionInDoc{wordInfo.PosInDocument, wordInfo.PosInDocument + len(word.Word)})
+			mapIDRelevantDocuments[wordInfo.IDDocument]++
+			mapIDRelevantPosInDocument[wordInfo.IDDocument] = append(mapIDRelevantPosInDocument[wordInfo.IDDocument],
+				PositionInDoc{wordInfo.PosInDocument, wordInfo.PosInDocument + len(word.Word)})
 		}
 	}
-	indexMatch := 0
-	for idDoc, countMatch := range mapIdRelevantDocuments {
-		if countMatch != len(words) {
-			continue
-		}
-		doc, err := a.storage.Get(idDoc)
-		if err != nil {
-			return nil, err
-		}
-		indexMatch++
-		context := ""
-		for _, pos := range mapIdRelevantPosInDocument[idDoc] {
-			if pos.begin-cFD >= 0 && pos.end+cFD < len(doc.Data) {
-				context += "..." + doc.Data[pos.begin-cFD:pos.end+cFD] + "..."
-			} else if pos.begin-cFD >= 0 {
-				context += "..." + doc.Data[pos.begin-cFD:] + "..."
-			} else if pos.end+cFD < len(doc.Data) {
-				context += "..." + doc.Data[:pos.end+cFD] + "..."
-			}
-		}
-		result = append(result, SearchResult{indexMatch, doc.Url, doc.Title, context})
-
-	}
-	return result, nil
+	return a.searchResult(words, mapIDRelevantDocuments, mapIDRelevantPosInDocument)
 }
 
 func New(logger Logger, storage Storage) *App {

@@ -22,8 +22,8 @@ type WordInfo struct {
 	Info []byte `db:"documents_list"`
 }
 
-type LastInsertId struct {
-	Id int
+type LastInsertID struct {
+	ID int
 }
 
 func (s *Storage) Connect(ctx context.Context, dsn string) error {
@@ -40,22 +40,21 @@ func (s *Storage) Close() error {
 }
 
 func (s *Storage) Add(document storage.Document) (int, error) {
-
 	rows, err := s.db.Queryx(`INSERT INTO document_source (url, title, data) VALUES ($1, $2, $3) RETURNING id`,
-		document.Url, document.Title, document.Data)
+		document.URL, document.Title, document.Data)
 	if err != nil {
 		return 0, err
 	}
 	defer rows.Close()
 	rows.Next()
-	lastInsertId := &LastInsertId{}
-	err = rows.StructScan(&lastInsertId)
-	return lastInsertId.Id, err
+	lastInsertID := &LastInsertID{}
+	err = rows.StructScan(&lastInsertID)
+	return lastInsertID.ID, err
 }
 
-func (s *Storage) Get(documentId int) (storage.Document, error) {
+func (s *Storage) Get(documentID int) (storage.Document, error) {
 	doc := storage.Document{}
-	rows, err := s.db.Queryx(`SELECT * FROM document_source WHERE id = $1`, documentId)
+	rows, err := s.db.Queryx(`SELECT * FROM document_source WHERE id = $1`, documentID)
 	if err != nil {
 		return doc, err
 	}
