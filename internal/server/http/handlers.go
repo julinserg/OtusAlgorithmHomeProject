@@ -90,6 +90,7 @@ func (ph *minisearchHandler) landingHandler(w http.ResponseWriter, r *http.Reque
 	if err != nil {
 		panic(err)
 	}
+	ph.data.ItemsSource = nil
 	ph.data.ItemsSource = append(ph.data.ItemsSource, listDoc...)
 	w.WriteHeader(http.StatusOK)
 	t := template.Must(template.New("result").Parse(htmlFormTmpl))
@@ -108,6 +109,7 @@ func (ph *minisearchHandler) searchHandler(w http.ResponseWriter, r *http.Reques
 		panic(err)
 	}
 	ph.data.SearchRequest = searchString
+	ph.data.ItemsResult = nil
 	ph.data.ItemsResult = append(ph.data.ItemsResult, listResultSearch...)
 	if ph.data.ItemsSource == nil {
 		listDoc, err := ph.app.GetAllDocument()
@@ -139,6 +141,7 @@ func (ph *minisearchHandler) addHandler(w http.ResponseWriter, r *http.Request) 
 	if err != nil {
 		panic(err)
 	}
+	ph.data.ItemsSource = nil
 	ph.data.ItemsSource = append(ph.data.ItemsSource, listDoc...)
 	t := template.Must(template.New("result").Parse(htmlFormTmpl))
 	buf := &bytes.Buffer{}
